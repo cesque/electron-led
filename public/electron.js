@@ -4,7 +4,7 @@ const { SerialPort } = require('serialport')
 
 let window = null
 const port = new SerialPort({
-    path: 'COM4',
+    path: 'COM3',
     baudRate: 57600
 })
 
