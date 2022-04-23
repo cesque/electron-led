@@ -98,7 +98,9 @@ function setUpAPI() {
         let g = Math.max(0, Math.min(255, data.g))
         let b = Math.max(0, Math.min(255, data.b))
 
-        port.write(`${ r } ${ g } ${ b }`, err => {
+        let buffer = Buffer.from([r, g, b])
+
+        port.write(buffer, err => {
             if(err) {
                 console.error(err)
             } else {
