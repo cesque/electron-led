@@ -8,6 +8,10 @@ const port = new SerialPort({
     baudRate: 57600
 })
 
+port.on('error', err => {
+    console.error('error: ' + err)
+})
+
 function createWindow(tray) {
     // create window at bottom right
     let display = screen.getPrimaryDisplay()
@@ -90,13 +94,16 @@ function setUpAPI() {
     ipcMain.handle('set', async (event, data) => {
         console.log(`set: ${ data.r }, ${ data.g }, ${ data.b }`)
         
-        try {
-            let r = Math.max(0, Math.min(255, data.r))
-            let g = Math.max(0, Math.min(255, data.g))
-            let b = Math.max(0, Math.min(255, data.b))
-            port.write(`${ r } ${ g } ${ b }`)
-        } catch(e) {
-            console.error(e)
-        }
+        let r = Math.max(0, Math.min(255, data.r))
+        let g = Math.max(0, Math.min(255, data.g))
+        let b = Math.max(0, Math.min(255, data.b))
+        
+        port.write(`${ r } ${ g } ${ b }`, err => {
+            if(err) {
+                console.error(err)
+            } else {
+                console.write('success')
+            }
+        })
     })
 }
