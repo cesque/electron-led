@@ -42,7 +42,7 @@ function createWindow(tray) {
         },
     })
 
-    win.on('blur', () => win.hide())
+    // win.on('blur', () => win.hide())
 
     //load the index.html from a url
     win.loadURL('http://localhost:3000');
@@ -97,12 +97,12 @@ function setUpAPI() {
         let r = Math.max(0, Math.min(255, data.r))
         let g = Math.max(0, Math.min(255, data.g))
         let b = Math.max(0, Math.min(255, data.b))
-        
+
         port.write(`${ r } ${ g } ${ b }`, err => {
             if(err) {
                 console.error(err)
             } else {
-                console.write('success')
+                console.log('success')
             }
         })
     })
