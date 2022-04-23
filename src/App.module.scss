@@ -1,0 +1,47 @@
+.app {
+    padding: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+
+    input { 
+        font-size: 1.2rem;
+        border-radius: 8px;
+        padding: 4px 10px;
+
+        &:focus {
+            outline: none;
+        }
+    }
+
+    button {
+        appearance: none;
+        background: #34495e;
+        color: white;
+        font-weight: 500;
+        padding: 4px 10px;
+        border-radius: 8px;
+        outline: none;
+        border: none;
+        font-size: 1.2rem;
+        width: auto;
+        cursor: pointer;
+
+        &:hover {
+            background: #2c3e50;
+        }
+    }
+}
+
+.r {
+    border: 2px solid #e74c3c;
+}
+
+.g {
+    border: 2px solid #2ecc71;
+}
+
+.b {
+    border: 2px solid #3498db
+}
