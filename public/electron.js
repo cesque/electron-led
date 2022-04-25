@@ -1,32 +1,35 @@
-const { app, BrowserWindow, Tray, screen, Menu, ipcMain } = require('electron')
+const { app, BrowserWindow, Tray, screen, Menu, ipcMain, nativeImage } = require('electron')
 const path = require('path')
 const { SerialPort } = require('serialport')
 
-let window = null
-const port = new SerialPort({
-    path: 'COM3',
-    baudRate: 57600
-})
+let port = { write: () => {}, on: () => {} }
+try {
+    port = new SerialPort({
+        path: 'COM3',
+        baudRate: 57600
+    })
+} catch(e) {
+    console.error(e)
+}
+
+const appSize = {
+    width: 400,
+    height: 600,
+}
 
 port.on('error', err => {
     console.error('error: ' + err)
 })
 
-function createWindow(tray) {
+function createWindow() {
     // create window at bottom right
     let display = screen.getPrimaryDisplay()
-    let trayBounds = tray.getBounds()
 
-    let appSize = {
-        width: 500,
-        height: 700,
-    }
-
-    const win = new BrowserWindow({
+    const window = new BrowserWindow({
         width: appSize.width,
         height: appSize.height,
         x: display.bounds.width - appSize.width,
-        y: display.bounds.height - appSize.height - trayBounds.height,
+        y: display.bounds.height - appSize.height,
         resizable: false,
         movable: false,
         minimizable: false,
@@ -35,37 +38,98 @@ function createWindow(tray) {
         alwaysOnTop: true,
         frame: false,
         skipTaskbar: true, 
-        show: false,
+        // show: false,
         webPreferences: {
             nodeIntegration: true,
             preload: path.join(__dirname, 'preload.js')
         },
     })
 
-    // win.on('blur', () => win.hide())
+    window.on('blur', () => window.hide())
 
     //load the index.html from a url
-    win.loadURL('http://localhost:3000');
+    window.loadURL('http://localhost:3000');
 
     // Open the DevTools.
-    win.webContents.openDevTools()
+    // window.webContents.openDevTools()
 
-    return win
+    return window
+}
+
+function makePresetMenuItem(preset) {
+    // why is it BGR and not RGB? something is weird here
+    let buffer = Buffer.from([ 
+        preset.b, preset.g, preset.r, 255,
+    ])
+
+    let image = nativeImage.createFromBuffer(buffer, { width: 1, height: 1 })
+    image = image.resize({
+        width: 16, 
+        height: 16
+    })
+
+    return {
+        label: preset.default ? 'Preset' : 'Saved',
+        type: 'normal',
+        icon: image,
+        click: event => changeColor(preset.r, preset.g, preset.b),
+    }
+}
+
+function createContextMenu(window, tray, presetData) {
+    presets = presetData?.presets ?? []
+    saved = presetData?.saved ?? []
+    console.log(presets, saved)
+
+    let contextMenuArray = [
+        { 
+            label: 'Quit',
+            type: 'normal',
+            click: event => app.quit(),
+        },
+    ]
+
+    let presetsMenuArray = presets.map(makePresetMenuItem)
+    if(presetsMenuArray.length) {
+        presetsMenuArray.push({
+            type: 'separator',
+        })
+    }
+    let savedMenuArray = saved.map(makePresetMenuItem)
+    if(savedMenuArray.length) {
+        savedMenuArray.push({
+            type: 'separator',
+        })
+    }
+
+    let combinedMenuArray = [
+        ...savedMenuArray,
+        ...presetsMenuArray,
+        ...contextMenuArray,
+    ]
+
+    const contextMenu = Menu.buildFromTemplate(combinedMenuArray)
+
+    tray.setContextMenu(contextMenu)
+    tray.on('click', () => window.show())
+    
+    let display = screen.getPrimaryDisplay()
+    let trayBounds = tray.getBounds()
+    let windowPosition = window.getPosition()
+    window.setPosition(windowPosition[0], display.bounds.height - appSize.height - trayBounds.height)
 }
 
 app.whenReady().then(() => {
     // create tray icon
-    let tray = new Tray(path.join(__dirname, '/logo192.png'))
+    let window = createWindow()
 
-    const contextMenu = Menu.buildFromTemplate([
-        { label: 'Quit', type: 'normal', click: event => app.quit() },
-    ])
+    let tray = new Tray(path.join(__dirname, '/led-icon.png'))
+    createContextMenu(window, tray)
+    setUpAPI(window, tray)
 
-    let window = createWindow(tray)
-
-    tray.setContextMenu(contextMenu)
-    tray.on('click', () => window.show())
-    setUpAPI()
+    setTimeout(() => {
+        
+    }, 1000)
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -83,29 +147,37 @@ app.on('activate', () => {
     }
 })
 
+app.on('before-quit', () => {
+    tray.destroy()
+})
+
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 
-function setUpAPI() {
-    ipcMain.handle('test-message', async (event, data) => {
-        console.log(event, data)
-    })
+function changeColor(r, g, b) {
+    r = Math.max(0, Math.min(255, r))
+    g = Math.max(0, Math.min(255, g))
+    b = Math.max(0, Math.min(255, b))
 
+    let buffer = Buffer.from([r, g, b])
+
+    port.write(buffer, e => {
+        if(e) {
+            console.error(e)
+        } else {
+            console.log('success')
+        }
+    })
+}
+
+function setUpAPI(window, tray) {
     ipcMain.handle('set', async (event, data) => {
         console.log(`set: ${ data.r }, ${ data.g }, ${ data.b }`)
         
-        let r = Math.max(0, Math.min(255, data.r))
-        let g = Math.max(0, Math.min(255, data.g))
-        let b = Math.max(0, Math.min(255, data.b))
+        changeColor(data.r, data.g, data.b)
+    })
 
-        let buffer = Buffer.from([r, g, b])
-
-        port.write(buffer, err => {
-            if(err) {
-                console.error(err)
-            } else {
-                console.log('success')
-            }
-        })
+    ipcMain.handle('set presets', async (event, data) => {
+        createContextMenu(window, tray, data)
     })
 }
